@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mSocial Forms</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="favicon.webp">
+  <style>
+    .loading {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      font-size: 24px;
+      text-align: center;
+      padding-top: 20%;
+      z-index: 999;
+    }
+    .form-label
+    {
+        font-weight: 600;
+    }
+    .question-hint
+    {
+      position: relative;
+      padding:4px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid #014626;
+      background-color: #01462610;
+      margin-right: 12px;
+      margin-bottom: 12px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+
+<body class="bg-light">
+
+  <div class="container mt-5">
+    <!-- Form Header -->
+    <div class="row">
+      <div class="col-12 text-center">
+        <i id="form-icon" class="fa-2x me-3"></i>
+        <h1 class="display-6" style="color:red;">Last Submitted Data: You can update or delete this Form Entry </h1>
+        <h1 id="form-title" class="display-4"></h1>
+        <p id="form-description" class="lead"></p>
+        <p><strong>Category:</strong> <span id="form-category"></span></p>
+      </div>
+    </div>
+
+    <!-- Form Start -->
+    <form id="form" action="#" method="POST">
+      <div id="questions-container" class="mt-4"></div>
+      <div class="text-center" style="margin-bottom:40px;">
+        <div class="btn btn-danger px-5 py-2" onclick="DeleteRecord();">Delete Record</div>
+        <button type="submit" id="submit-btn" class="btn btn-primary px-5 py-2">Update Record</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Loading Screen -->
+  <div class="loading" id="loading">Loading, please wait...</div>
+
+  <script>
+    const server_url = "https://mcxmmao7n7m6ozg5uhskektnse0agfam.lambda-url.ap-south-1.on.aws/";
+    var prev_data;
+
+    // Variable to store the submit URL
+    let submitUrl = '';
+
+    // Function to get URL parameter value by name
+    function getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    // Function to set a cookie
+    function setCookie(name, value, days) {
+        const date = new Date();
+        date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+        document.cookie = `${name}=${value};expires=${date.toUTCString()};path=/`;
+    }
+
+    // Function to get a cookie
+    function getCookie(name) {
+        const cookies = document.cookie.split("; ");
+        for (const cookie of cookies) {
+            const [key, value] = cookie.split("=");
+            if (key === name) return value;
+        }
+        return null;
+    }
+
+    // Show login form if email cookie is missing
+    let userEmail = getCookie("email");
+
+
+    // Fetch form schema by ID
+    async function fetchFormSchema(formId) {
+        const response = await fetch(server_url + "?id=" + formId);
+        const data = await response.json();
+        return data;
+    }
+
+    async function fetchOldFormData(url, user) {
+        const response = await fetch(`${url}?user=${user}`, {
+            method: 'GET'
+        });
+        const data = await response.json();
+        return data;
+    }
+
+
+    // Function to generate form elements based on the schema
+    function generateForm(schema,oldData) {
+      // Display icon, title, description, and category (readonly)
+      const classes = schema.icon.split(' '); // Split by space
+        // Loop through each class name and add it to the element's class list
+        classes.forEach(classname => {
+            document.getElementById('form-icon').classList.add(classname);
+        });
+
+      document.getElementById('form-title').textContent = schema.title;
+      document.getElementById('form-description').textContent = schema.description;
+      document.getElementById('form-category').textContent = schema.category;
+
+      // Store the submit URL from the schema
+      submitUrl = schema.submitUrl;
+
+      const questionsContainer = document.getElementById('questions-container');
+
+      schema.questions.forEach((question, index) => {
+        const questionDiv = document.createElement('div');
+        questionDiv.classList.add('mb-4', 'form-group');
+
+        
+        const questionHint = document.createElement('span');
+        questionHint.textContent = question.label;
+        questionHint.classList.add('question-hint');
+        questionHint.classList.add('form-label');
+        questionDiv.append(questionHint);
+
+        // questionDiv.append(document.createElement('br'));
+        
+        const questionLabel = document.createElement('label');
+        questionLabel.setAttribute('for', question.key);
+        questionLabel.textContent = question.text;
+        questionLabel.classList.add('form-label');
+        questionDiv.appendChild(questionLabel);
+
+
+
+        let questionInput;
+
+        // Generate different input types based on the question type
+        switch (question.type) {
+          case 'short-text':
+            questionInput = document.createElement('input');
+            questionInput.type = 'text';
+            questionInput.name = question.key;
+            questionInput.classList.add('form-control');
+            questionInput.value = oldData[question.key] || '';
+            break;
+          case 'paragraph':
+            questionInput = document.createElement('textarea');
+            questionInput.name = question.key;
+            questionInput.classList.add('form-control');
+            questionInput.value = oldData[question.key] || '';
+            break;
+          case 'number':
+            questionInput = document.createElement('input');
+            questionInput.type = 'number';
+            questionInput.name = question.key;
+            questionInput.step = '0.01';
+            questionInput.classList.add('form-control');
+            questionInput.value = oldData[question.key] || '';
+            break;
+          case 'dropdown':
+            questionInput = document.createElement('select');
+            questionInput.name = question.key;
+            questionInput.classList.add('form-select');
+            question.options.forEach(option => {
+              const optionElement = document.createElement('option');
+              optionElement.value = option.key;
+              optionElement.textContent = option.value;
+              if (oldData[question.key] === option.key) {
+                    optionElement.selected = true;
+                }
+              questionInput.appendChild(optionElement);
+            });
+            break;
+          case 'multiple-choice':
+            question.options.forEach(option => {
+              const optionDiv = document.createElement('div');
+              optionDiv.classList.add('form-check');
+              const optionInput = document.createElement('input');
+              optionInput.type = 'radio';
+              optionInput.name = question.key;
+              optionInput.value = option.key;
+              optionInput.classList.add('form-check-input');
+              if (oldData[question.key] === option.key) {
+                    optionInput.checked = true;
+                }
+              const optionLabel = document.createElement('label');
+              optionLabel.classList.add('form-check-label');
+              optionLabel.textContent = option.value;
+              optionDiv.appendChild(optionInput);
+              optionDiv.appendChild(optionLabel);
+              questionDiv.appendChild(optionDiv);
+            });
+            break;
+          case 'checkboxes':
+            question.options.forEach(option => {
+              const optionDiv = document.createElement('div');
+              optionDiv.classList.add('form-check');
+              const optionInput = document.createElement('input');
+              optionInput.type = 'checkbox';
+              optionInput.name = question.key;
+              optionInput.value = option.key;
+              optionInput.classList.add('form-check-input');
+              if (oldData[question.key] && oldData[question.key].includes(option.key)) {
+                    optionInput.checked = true;
+                }
+              const optionLabel = document.createElement('label');
+              optionLabel.classList.add('form-check-label');
+              optionLabel.textContent = option.value;
+              optionDiv.appendChild(optionInput);
+              optionDiv.appendChild(optionLabel);
+              questionDiv.appendChild(optionDiv);
+            });
+            break;
+          case 'date':
+            questionInput = document.createElement('input');
+            questionInput.type = 'date';
+            questionInput.name = question.key;
+            questionInput.classList.add('form-control');
+            questionInput.value = oldData[question.key] || '';
+            break;
+        }
+
+        if(questionInput)
+        {
+            questionInput.id = `question-${index}`;
+            questionDiv.appendChild(questionInput);
+        }
+        questionsContainer.appendChild(questionDiv);
+      });
+    }
+
+    // Form submission handler
+    document.getElementById('form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Show loading screen and disable the submit button
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('submit-btn').disabled = true;
+
+        // Collect form data
+        const formData = new FormData(e.target);
+
+        // Convert FormData to a plain object
+        const formDataObj = {};
+        formData.forEach((value, key) => {
+            if (formDataObj.hasOwnProperty(key)) {
+                // If the key already exists, convert the value to an array and add the new value
+                formDataObj[key] = Array.isArray(formDataObj[key])
+                    ? [...formDataObj[key], value]
+                    : [formDataObj[key], value];
+            } else {
+                // Otherwise, just assign the value
+                formDataObj[key] = value;
+            }
+        });
+
+        // Get all checkboxes from the form
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+        // For each checkbox, ensure its key exists in formDataObj
+        checkboxes.forEach(checkbox => {
+            const key = checkbox.name;
+            if (!formDataObj.hasOwnProperty(key)) {
+                // If the checkbox key doesn't exist in formDataObj, initialize it as an empty array
+                formDataObj[key] = [];
+            }
+        });
+
+
+
+
+        console.log(formDataObj);
+
+        function validateForm() {
+            // Iterate over each key in the formDataObj
+            for (const key in formDataObj) {
+                // Check if the value is an empty string, empty array, or null
+                if (formDataObj[key] === '' || formDataObj[key] === null || 
+                    (Array.isArray(formDataObj[key]) && formDataObj[key].length === 0)) {
+                    return false; // Return false if any value is invalid
+                }
+            }
+            return true; // Return true if all values are valid
+        }
+
+        if (!validateForm()) {
+            alert("All fields must be filled.");
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('submit-btn').disabled = false;
+            return;
+        }
+        else
+        {
+            if(!userEmail)
+            {
+                userEmail = prompt("Provide your email");
+                if(!userEmail.trim())
+                {
+                    alert("Not a valid email");
+                    return;
+                }
+            }
+
+            setCookie("email", userEmail);
+
+
+            formDataObj["user"] = userEmail;
+            formDataObj["date"] = prev_data["date"];
+
+            var finalObj = {};
+            finalObj.action = "update";
+            finalObj.prev = prev_data;
+            finalObj.current = formDataObj;
+
+
+            try{
+                const response = await fetch(submitUrl, {
+                    redirect: "follow",
+                    method: "POST",
+                    // mode: 'no-cors',
+                    body: JSON.stringify(finalObj),
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8",
+                    },
+                });
+                console.log(response);
+
+                if (response.ok) {
+                    alert('Record Updated successfully!');
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Failed to submit form. Please try again.');
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('submit-btn').disabled = false;
+                }
+            }
+            catch
+            {
+                alert('Failed to submit form. Please try again.');
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('submit-btn').disabled = false;
+            }
+           
+
+            
+        }
+
+
+        
+
+    });
+
+    // Initialize the form by fetching schema
+    window.addEventListener('load', async () => {
+        
+      document.getElementById('loading').style.display = 'block';
+      const formId = getUrlParameter('id');
+      if (formId) {
+        const formSchema = await fetchFormSchema(formId);
+        if(!userEmail)
+        {
+            userEmail = prompt("Provide your email");
+            if(!userEmail.trim())
+            {
+                alert("Not a valid email");
+                return;
+            }
+        }
+
+        setCookie("email", userEmail);
+
+        const oldData = await fetchOldFormData(formSchema.submitUrl,userEmail);
+        prev_data = oldData;
+        console.log(oldData);
+
+        generateForm(formSchema, oldData);
+        document.getElementById('loading').style.display = 'none';
+      } else {
+        alert('Form ID is missing!');
+      }
+    });
+
+    async function DeleteRecord()
+    {
+        if(!confirm("You are about to delete a record, are you sure?"))
+        {
+            return;
+        }
+        
+        document.getElementById('loading').style.display = 'block';
+        try{
+                prev_data["action"] = "delete";
+                console.log(prev_data);
+                const response = await fetch(submitUrl, {
+                    redirect: "follow",
+                    method: "POST",
+                    // mode: 'no-cors',
+                    body: JSON.stringify(prev_data),
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8",
+                    },
+                });
+                console.log(response);
+
+                if (response.ok) {
+                    console.log("Entry deleted successfully");
+                    alert('Record Deleted successfully!');
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Failed to submit form. Please try again.');
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('submit-btn').disabled = false;
+                }
+            }
+            catch
+            {
+                alert('Failed to submit form. Please try again.');
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('submit-btn').disabled = false;
+            }
+
+    }
+
+
+  </script>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+</body>
+
+</html>
