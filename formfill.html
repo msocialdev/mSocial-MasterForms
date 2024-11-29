@@ -52,6 +52,7 @@
         <h1 id="form-title" class="display-4"></h1>
         <p id="form-description" class="lead"></p>
         <p><strong>Category:</strong> <span id="form-category"></span></p>
+        <a id="modify-form-link" class="px-5 py-2" href="formmodify.html">View / Modify Last entry</a>
       </div>
     </div>
 
@@ -69,7 +70,12 @@
 
   <script>
     const server_url = "https://mcxmmao7n7m6ozg5uhskektnse0agfam.lambda-url.ap-south-1.on.aws/";
-
+    {
+      const queryParams = window.location.search;
+      // Append the query parameters to the link's href
+      const modifyFormLink = document.getElementById('modify-form-link');
+      modifyFormLink.href += queryParams;
+    }
     // Variable to store the submit URL
     let submitUrl = '';
 
