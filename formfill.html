@@ -27,6 +27,18 @@
     {
         font-weight: 600;
     }
+    .question-hint
+    {
+      position: relative;
+      padding:4px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid #014626;
+      background-color: #01462610;
+      margin-right: 12px;
+      margin-bottom: 12px;
+      border-radius: 5px;
+    }
   </style>
 </head>
 
@@ -116,12 +128,23 @@
       schema.questions.forEach((question, index) => {
         const questionDiv = document.createElement('div');
         questionDiv.classList.add('mb-4', 'form-group');
+
+        
+        const questionHint = document.createElement('span');
+        questionHint.textContent = question.label;
+        questionHint.classList.add('question-hint');
+        questionHint.classList.add('form-label');
+        questionDiv.append(questionHint);
+
+        // questionDiv.append(document.createElement('br'));
         
         const questionLabel = document.createElement('label');
         questionLabel.setAttribute('for', question.key);
         questionLabel.textContent = question.text;
         questionLabel.classList.add('form-label');
         questionDiv.appendChild(questionLabel);
+
+
 
         let questionInput;
 

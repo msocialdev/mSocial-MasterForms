@@ -128,6 +128,10 @@
             <input type="text" class="form-control" id="question-key-${index}" placeholder="Enter unique key" value="${question.key || ''}" required>
           </div>
           <div class="mb-3">
+            <label for="question-label-${index}" class="form-label">Label Suggestion</label>
+            <input type="text" class="form-control" id="question-label-${index}" placeholder="Enter unique KPI label" value="${question.label || ''}" required>
+          </div>
+          <div class="mb-3">
             <label for="question-text-${index}" class="form-label">Question Text</label>
             <input type="text" class="form-control" id="question-text-${index}" placeholder="Enter question text" value="${question.text || ''}" required>
           </div>
@@ -192,6 +196,7 @@
         submitUrl: document.getElementById('submit-url').value,
         questions: [...document.querySelectorAll('.question-container')].map(container => ({
           key: container.querySelector('input[id^="question-key"]').value,
+          label:container.querySelector('input[id^="question-label"]').value,
           text: container.querySelector('input[id^="question-text"]').value,
           type: container.querySelector('select').value,
           options: [...container.querySelectorAll('.option-container')].map(opt => ({
